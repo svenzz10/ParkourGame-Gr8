@@ -1,5 +1,3 @@
-// Some stupid rigidbody based movement by Dani
-
 using System;
 using UnityEngine;
 
@@ -18,8 +16,12 @@ public class PlayerMovement : MonoBehaviour {
     private float sensMultiplier = 1f;
     
     //Movement
-    public float moveSpeed = 4500;
-    public float maxSpeed = 20;
+    public float moveSpeed = 1000;
+    public float maxSpeed = 15;
+
+    public float maxSprintSpeed = 30;
+
+    private float originalMaxSpeed;
     public bool grounded;
     public LayerMask whatIsGround;
     
@@ -31,16 +33,18 @@ public class PlayerMovement : MonoBehaviour {
     private Vector3 crouchScale = new Vector3(1, 0.5f, 1);
     private Vector3 playerScale;
     public float slideForce = 400;
-    public float slideCounterMovement = 0.2f;
+    public float slideCounterMovement = 0.4f;
 
     //Jumping
     private bool readyToJump = true;
     private float jumpCooldown = 0.25f;
-    public float jumpForce = 550f;
+    public float jumpForce = 150f;
     
     //Input
     float x, y;
     bool jumping, sprinting, crouching;
+
+    public float sprintMultiplier = 4f;
     
     //Sliding
     private Vector3 normalVector = Vector3.up;
@@ -74,6 +78,12 @@ public class PlayerMovement : MonoBehaviour {
         y = Input.GetAxisRaw("Vertical");
         jumping = Input.GetButton("Jump");
         crouching = Input.GetKey(KeyCode.LeftControl);
+        
+        //Sprinting
+        if (Input.GetKeyDown(KeyCode.LeftShift))
+            StartSprint();
+        if (Input.GetKeyUp(KeyCode.LeftShift))
+            StopSprint();   
       
         //Crouching
         if (Input.GetKeyDown(KeyCode.LeftControl))
@@ -82,6 +92,18 @@ public class PlayerMovement : MonoBehaviour {
             StopCrouch();
     }
 
+
+    private void StartSprint(){
+        this.originalMaxSpeed = this.maxSpeed;
+        this.maxSpeed = this.maxSprintSpeed;
+        sprinting = true;
+        rb.AddForce(orientation.transform.forward * sprintMultiplier * 100);
+    } 
+
+    private void StopSprint(){
+        this.maxSpeed = this.originalMaxSpeed;
+        sprinting = false; 
+    }
     private void StartCrouch() {
         if (jumping || !grounded) return;
         transform.localScale = crouchScale;
@@ -100,7 +122,7 @@ public class PlayerMovement : MonoBehaviour {
 
     private void Movement() {
         //Extra gravity
-        rb.AddForce(Vector3.down * Time.deltaTime * 10);
+        rb.AddForce(Vector3.down * Time.deltaTime * 20);
         
         //Find actual velocity relative to where player is looking
         Vector2 mag = FindVelRelativeToLook();
@@ -120,15 +142,18 @@ public class PlayerMovement : MonoBehaviour {
             rb.AddForce(Vector3.down * Time.deltaTime * 3000);
             return;
         }
+
+        //Some multipliers
+        float multiplier = 1f, multiplierV = 1f, multiplierS = 1f;
+
+        if (grounded && sprinting){
+        }
         
         //If speed is larger than maxspeed, cancel out the input so you don't go over max speed
         if (x > 0 && xMag > maxSpeed) x = 0;
         if (x < 0 && xMag < -maxSpeed) x = 0;
         if (y > 0 && yMag > maxSpeed) y = 0;
         if (y < 0 && yMag < -maxSpeed) y = 0;
-
-        //Some multipliers
-        float multiplier = 1f, multiplierV = 1f;
         
         // Movement in air
         if (!grounded) {
@@ -140,8 +165,8 @@ public class PlayerMovement : MonoBehaviour {
         if (grounded && crouching) multiplierV = 0f;
 
         //Apply forces to move player
-        rb.AddForce(orientation.transform.forward * y * moveSpeed * Time.deltaTime * multiplier * multiplierV);
-        rb.AddForce(orientation.transform.right * x * moveSpeed * Time.deltaTime * multiplier);
+        rb.AddForce(orientation.transform.forward * y * moveSpeed * Time.deltaTime * multiplier * multiplierV * multiplierS);
+        rb.AddForce(orientation.transform.right * x * moveSpeed * Time.deltaTime * multiplier * multiplierS);
     }
 
     private void Jump() {
