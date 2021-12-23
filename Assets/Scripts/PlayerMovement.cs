@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class PlayerMovement : MonoBehaviour {
 
@@ -45,6 +46,10 @@ public class PlayerMovement : MonoBehaviour {
     bool jumping, sprinting, crouching;
 
     public float sprintMultiplier = 4f;
+
+    private float energyLevel;
+
+    public Text energyLevelUI;
     
     //Sliding
     private Vector3 normalVector = Vector3.up;
@@ -62,6 +67,7 @@ public class PlayerMovement : MonoBehaviour {
 
     
     private void FixedUpdate() {
+        energyLevelUI.text = "Energy Level: " + (int) energyLevel;
         Movement();
     }
 
@@ -80,13 +86,13 @@ public class PlayerMovement : MonoBehaviour {
         crouching = Input.GetKey(KeyCode.LeftControl);
         
         //Sprinting
-        if (Input.GetKeyDown(KeyCode.LeftShift))
+        if (Input.GetKeyDown(KeyCode.LeftShift) && grounded && hasEnoughEnergy())
             StartSprint();
         if (Input.GetKeyUp(KeyCode.LeftShift))
             StopSprint();   
       
         //Crouching
-        if (Input.GetKeyDown(KeyCode.LeftControl))
+        if (Input.GetKeyDown(KeyCode.LeftControl) && grounded && hasEnoughEnergy())
             StartCrouch();
         if (Input.GetKeyUp(KeyCode.LeftControl))
             StopCrouch();
@@ -97,7 +103,7 @@ public class PlayerMovement : MonoBehaviour {
         this.originalMaxSpeed = this.maxSpeed;
         this.maxSpeed = this.maxSprintSpeed;
         sprinting = true;
-        rb.AddForce(orientation.transform.forward * sprintMultiplier * 100);
+        if (hasEnoughEnergy()) rb.AddForce(orientation.transform.forward * sprintMultiplier * 100);
     } 
 
     private void StopSprint(){
@@ -110,7 +116,7 @@ public class PlayerMovement : MonoBehaviour {
         transform.position = new Vector3(transform.position.x, transform.position.y - 0.5f, transform.position.z);
         if (rb.velocity.magnitude > 0.5f) {
             if (grounded) {
-                rb.AddForce(orientation.transform.forward * slideForce);
+                if (hasEnoughEnergy()) rb.AddForce(orientation.transform.forward * slideForce);
             }
         }
     }
@@ -120,9 +126,25 @@ public class PlayerMovement : MonoBehaviour {
         transform.position = new Vector3(transform.position.x, transform.position.y + 0.5f, transform.position.z);
     }
 
+    private Boolean hasEnoughEnergy(){
+        return energyLevel > 5f;
+    }
+
     private void Movement() {
+        //FixedUpdate runs 50 times per second
+        if (!sprinting && !jumping && !crouching && grounded){
+            energyLevel += 0.3f; //every second you walk you get 10 energy
+        } else {
+            if (energyLevel >= 0.2f) energyLevel -= 0.2f; //every second you run you lose 5 energy
+        }
+
+        if (sprinting && energyLevel <= 5f){
+            print("here");
+            rb.velocity = -rb.velocity.normalized * slideCounterMovement;
+        }
+
         //Extra gravity
-        rb.AddForce(Vector3.down * Time.deltaTime * 20);
+        rb.AddForce(Vector3.down * Time.deltaTime * 300);
         
         //Find actual velocity relative to where player is looking
         Vector2 mag = FindVelRelativeToLook();
@@ -132,7 +154,7 @@ public class PlayerMovement : MonoBehaviour {
         CounterMovement(x, y, mag);
         
         //If holding jump && ready to jump, then jump
-        if (readyToJump && jumping) Jump();
+        if (readyToJump && jumping && hasEnoughEnergy()) Jump();
 
         //Set max speed
         float maxSpeed = this.maxSpeed;
@@ -145,9 +167,6 @@ public class PlayerMovement : MonoBehaviour {
 
         //Some multipliers
         float multiplier = 1f, multiplierV = 1f, multiplierS = 1f;
-
-        if (grounded && sprinting){
-        }
         
         //If speed is larger than maxspeed, cancel out the input so you don't go over max speed
         if (x > 0 && xMag > maxSpeed) x = 0;
